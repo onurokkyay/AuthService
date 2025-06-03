@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.krawenn.auth.dto.AuthRequest;
 import com.krawenn.auth.dto.AuthResponse;
+import com.krawenn.auth.dto.RefreshRequest;
 import com.krawenn.auth.service.AuthService;
 import jakarta.validation.Valid;
 
@@ -24,5 +25,10 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid AuthRequest request) {
         String token = authService.login(request);
         return ResponseEntity.ok(new AuthResponse(token));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody @Valid RefreshRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request));
     }
 } 
