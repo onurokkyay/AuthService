@@ -1,6 +1,9 @@
 package com.krawenn.auth.service.impl;
 
 import com.krawenn.auth.dto.AuthRequest;
+import com.krawenn.auth.exception.InvalidCredentialsException;
+import com.krawenn.auth.exception.UserAlreadyExistsException;
+import com.krawenn.auth.exception.UserNotFoundException;
 import com.krawenn.auth.model.User;
 import com.krawenn.auth.repository.UserRepository;
 import com.krawenn.auth.security.JwtUtil;
@@ -21,7 +24,7 @@ public class AuthServiceImpl implements AuthService {
     public void register(AuthRequest request) {
         if (userRepository.findByUsername(request.getUsername()).isPresent() ||
             userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("User already exists");
+            throw new UserAlreadyExistsException();
         }
         User user = new User();
         user.setUsername(request.getUsername());
@@ -33,9 +36,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String login(AuthRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(UserNotFoundException::new);
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
         return jwtUtil.generateToken(user.getUsername());
     }
