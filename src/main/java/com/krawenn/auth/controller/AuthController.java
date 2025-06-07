@@ -23,8 +23,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody @Valid AuthRequest request) {
-        String token = authService.login(request);
-        return ResponseEntity.ok(new AuthResponse(token));
+        return ResponseEntity.ok(authService.login(request));
     }
 
     @PostMapping("/refresh")

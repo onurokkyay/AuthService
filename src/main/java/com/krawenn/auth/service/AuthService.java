@@ -6,6 +6,6 @@ import com.krawenn.auth.dto.AuthResponse;
 
 public interface AuthService {
     void register(AuthRequest request);
-    String login(AuthRequest request);
+    AuthResponse login(AuthRequest request);
     AuthResponse refreshToken(RefreshRequest request);
 }

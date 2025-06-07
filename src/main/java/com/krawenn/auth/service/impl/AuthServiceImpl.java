@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String login(AuthRequest request) {
+    public AuthResponse login(AuthRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(UserNotFoundException::new);
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -59,7 +59,7 @@ public class AuthServiceImpl implements AuthService {
         refreshToken.setExpiryDate(Instant.now().plusMillis(REFRESH_TOKEN_DURATION_MS));
         refreshTokenRepository.save(refreshToken);
         // Return both tokens
-        return new AuthResponse(jwtUtil.generateToken(user.getUsername()), refreshTokenStr).getToken();
+        return new AuthResponse(jwtUtil.generateToken(user.getUsername()), refreshTokenStr);
     }
 
     @Override
