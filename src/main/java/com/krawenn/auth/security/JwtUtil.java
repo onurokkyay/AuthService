@@ -23,6 +23,7 @@ public class JwtUtil {
 
     public String generateToken(String username) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put("iss", "league-auth-service");
         return createToken(claims, username);
     }
 
