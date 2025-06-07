@@ -1,28 +1,33 @@
-# 1. Build stage: Use Maven with JDK 21 to build the project
-FROM maven:3.9.0-eclipse-temurin-21 AS build
+# ---- Stage 1: Build the application ----
+FROM gradle:8.7-jdk21 AS builder
 
+# Set working directory
 WORKDIR /app
 
-# Copy pom.xml and download dependencies first to leverage Docker cache
-COPY pom.xml .
-RUN mvn dependency:go-offline
+# Copy Gradle build files
+COPY build.gradle settings.gradle ./
+COPY gradle ./gradle
 
-# Copy source code to container
-COPY src ./src
+# Download dependencies
+RUN gradle build -x test --no-daemon || return 0
 
-# Build the Spring Boot jar, skipping tests for faster build
-RUN mvn clean package -DskipTests
+# Copy rest of the source code
+COPY . .
 
-# 2. Run stage: Use a minimal JRE 21 image to run the built jar
+# Build the Spring Boot application
+RUN gradle bootJar -x test --no-daemon
+
+# ---- Stage 2: Create minimal runtime image ----
 FROM eclipse-temurin:21-jre
 
+# Set working directory
 WORKDIR /app
 
-# Copy the built jar from the build stage
-COPY --from=build /app/target/*.jar auth-service.jar
+# Copy the built JAR from builder stage
+COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Expose port 8081 (default port for auth service)
-EXPOSE 8081
+# Expose the port your application runs on (change if not 8080)
+EXPOSE 8080
 
-# Run the Spring Boot application
-ENTRYPOINT ["java", "-jar", "auth-service.jar"]
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]

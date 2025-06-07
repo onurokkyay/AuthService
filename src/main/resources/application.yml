@@ -6,4 +6,13 @@ springdoc:
     url: /api/auth/v3/api-docs
 
 swagger:
-  gateway-url: http://localhost:8080
+  gateway-url: ${GATEWAY_URL}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 3600000
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URL}
