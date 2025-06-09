@@ -60,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
         refreshToken.setExpiryDate(Instant.now().plusMillis(REFRESH_TOKEN_DURATION_MS));
         refreshTokenRepository.save(refreshToken);
         // Return both tokens
-        return new AuthResponse(jwtUtil.generateToken(user.getUsername()), refreshTokenStr);
+        return new AuthResponse(jwtUtil.generateToken(user.getUsername(), user.getRole()), refreshTokenStr, user.getRole());
     }
 
     @Override
@@ -73,7 +73,7 @@ public class AuthServiceImpl implements AuthService {
         }
         User user = userRepository.findById(refreshToken.getUserId())
                 .orElseThrow(UserNotFoundException::new);
-        String newJwt = jwtUtil.generateToken(user.getUsername());
-        return new AuthResponse(newJwt, refreshToken.getToken());
+        String newJwt = jwtUtil.generateToken(user.getUsername(), user.getRole());
+        return new AuthResponse(newJwt, refreshToken.getToken(), user.getRole());
     }
 } 
