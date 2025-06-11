@@ -1,6 +1,7 @@
 package com.krawenn.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.krawenn.auth.config.MockAuthServiceTestConfig;
 import com.krawenn.auth.dto.AuthRequest;
 import com.krawenn.auth.dto.AuthResponse;
 import com.krawenn.auth.dto.RefreshRequest;
@@ -28,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @TestPropertySource(properties = "spring.config.import=optional:configserver:")
-@Import(AuthControllerTest.MockAuthServiceConfig.class)
+@Import(MockAuthServiceTestConfig.class)
 class AuthControllerTest {
 
     @Autowired
@@ -39,14 +40,6 @@ class AuthControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @TestConfiguration
-    static class MockAuthServiceConfig {
-        @Bean
-        public AuthService authService() {
-            return Mockito.mock(AuthService.class);
-        }
-    }
 
     private AuthRequest validAuthRequest() {
         AuthRequest request = new AuthRequest();
