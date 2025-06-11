@@ -1,18 +1,8 @@
-springdoc:
-  api-docs:
-    path: /api/auth/v3/api-docs
-  swagger-ui:
-    path: /api/auth/swagger-ui.html
-    url: /api/auth/v3/api-docs
-
-swagger:
-  gateway-url: ${GATEWAY_URL}
-
-jwt:
-  secret: ${JWT_SECRET}
-  expiration: 3600000
-
 spring:
-  data:
-    mongodb:
-      uri: ${MONGODB_URL}
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      uri: ${CONFIG_SERVER_URL}
+  application:
+    name: auth-service
