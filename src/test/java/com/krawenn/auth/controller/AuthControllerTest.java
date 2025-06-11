@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
+@TestPropertySource(properties = "spring.config.import=optional:configserver:")
 @Import(AuthControllerTest.MockAuthServiceConfig.class)
 class AuthControllerTest {
 
