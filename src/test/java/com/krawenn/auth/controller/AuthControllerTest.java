@@ -48,13 +48,24 @@ class AuthControllerTest {
         }
     }
 
-    @Test
-    @DisplayName("Register should return 200 OK")
-    void register_shouldReturnOk() throws Exception {
+    private AuthRequest validAuthRequest() {
         AuthRequest request = new AuthRequest();
         request.setUsername("testuser");
         request.setEmail("test@example.com");
         request.setPassword("password123");
+        return request;
+    }
+
+    private RefreshRequest validRefreshRequest() {
+        RefreshRequest request = new RefreshRequest();
+        request.setRefreshToken("refresh-token");
+        return request;
+    }
+
+    @Test
+    @DisplayName("Register should return 200 OK")
+    void register_shouldReturnOk() throws Exception {
+        AuthRequest request = validAuthRequest();
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -65,10 +76,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Register should return 409 Conflict if user already exists")
     void register_shouldReturnConflictIfUserExists() throws Exception {
-        AuthRequest request = new AuthRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
+        AuthRequest request = validAuthRequest();
 
         Mockito.doThrow(new UserAlreadyExistsException()).when(authService).register(any(AuthRequest.class));
 
@@ -82,10 +90,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return AuthResponse")
     void login_shouldReturnAuthResponse() throws Exception {
-        AuthRequest request = new AuthRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
+        AuthRequest request = validAuthRequest();
 
         AuthResponse response = new AuthResponse("jwt-token", "refresh-token", "USER");
         Mockito.when(authService.login(any(AuthRequest.class))).thenReturn(response);
@@ -102,9 +107,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return 401 Unauthorized for invalid credentials")
     void login_shouldReturnUnauthorizedForInvalidCredentials() throws Exception {
-        AuthRequest request = new AuthRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
+        AuthRequest request = validAuthRequest();
         request.setPassword("wrongpassword");
 
         Mockito.when(authService.login(any(AuthRequest.class)))
@@ -120,10 +123,9 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return 404 Not Found for missing user")
     void login_shouldReturnNotFoundForMissingUser() throws Exception {
-        AuthRequest request = new AuthRequest();
+        AuthRequest request = validAuthRequest();
         request.setUsername("nouser");
         request.setEmail("nouser@example.com");
-        request.setPassword("password123");
 
         Mockito.when(authService.login(any(AuthRequest.class)))
                 .thenThrow(new UserNotFoundException());
@@ -138,8 +140,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Refresh should return new AuthResponse")
     void refresh_shouldReturnAuthResponse() throws Exception {
-        RefreshRequest request = new RefreshRequest();
-        request.setRefreshToken("refresh-token");
+        RefreshRequest request = validRefreshRequest();
 
         AuthResponse response = new AuthResponse("new-jwt-token", "refresh-token", "USER");
         Mockito.when(authService.refreshToken(any(RefreshRequest.class))).thenReturn(response);
@@ -156,7 +157,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Refresh should return 401 Unauthorized for invalid refresh token")
     void refresh_shouldReturnUnauthorizedForInvalidToken() throws Exception {
-        RefreshRequest request = new RefreshRequest();
+        RefreshRequest request = validRefreshRequest();
         request.setRefreshToken("invalid-token");
 
         Mockito.when(authService.refreshToken(any(RefreshRequest.class)))
