@@ -9,6 +9,7 @@ import com.krawenn.auth.exception.InvalidCredentialsException;
 import com.krawenn.auth.exception.UserAlreadyExistsException;
 import com.krawenn.auth.exception.UserNotFoundException;
 import com.krawenn.auth.service.AuthService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -39,43 +40,45 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private AuthRequest validAuthRequest() {
-        AuthRequest request = new AuthRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
-        return request;
-    }
+    private AuthRequest validAuthRequest;
+    private RefreshRequest validRefreshRequest;
+    private AuthResponse validAuthResponse;
 
-    private RefreshRequest validRefreshRequest() {
-        RefreshRequest request = new RefreshRequest();
-        request.setRefreshToken("refresh-token");
-        return request;
+    @BeforeEach
+    void setUp() {
+        // Setup valid auth request
+        validAuthRequest = new AuthRequest();
+        validAuthRequest.setUsername("testuser");
+        validAuthRequest.setEmail("test@example.com");
+        validAuthRequest.setPassword("password123");
+
+        // Setup valid refresh request
+        validRefreshRequest = new RefreshRequest();
+        validRefreshRequest.setRefreshToken("refresh-token");
+
+        // Setup valid auth response
+        validAuthResponse = new AuthResponse("jwt-token", "refresh-token", "USER");
     }
 
     @Test
     @DisplayName("Register should return 200 OK")
     void register_shouldReturnOk() throws Exception {
-        AuthRequest request = validAuthRequest();
-
         Mockito.doNothing().when(authService).register(any(AuthRequest.class));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validAuthRequest)))
                 .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Register should return 409 Conflict if user already exists")
     void register_shouldReturnConflictIfUserExists() throws Exception {
-        AuthRequest request = validAuthRequest();
-
         Mockito.doThrow(new UserAlreadyExistsException()).when(authService).register(any(AuthRequest.class));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validAuthRequest)))
                 .andExpect(status().isConflict())
                 .andExpect(content().string("User already exists"));
     }
@@ -83,14 +86,11 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return AuthResponse")
     void login_shouldReturnAuthResponse() throws Exception {
-        AuthRequest request = validAuthRequest();
-
-        AuthResponse response = new AuthResponse("jwt-token", "refresh-token", "USER");
-        Mockito.when(authService.login(any(AuthRequest.class))).thenReturn(response);
+        Mockito.when(authService.login(any(AuthRequest.class))).thenReturn(validAuthResponse);
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validAuthRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("jwt-token"))
                 .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
@@ -100,15 +100,12 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return 401 Unauthorized for invalid credentials")
     void login_shouldReturnUnauthorizedForInvalidCredentials() throws Exception {
-        AuthRequest request = validAuthRequest();
-        request.setPassword("wrongpassword");
-
         Mockito.when(authService.login(any(AuthRequest.class)))
                 .thenThrow(new InvalidCredentialsException());
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validAuthRequest)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string("Invalid credentials"));
     }
@@ -116,16 +113,12 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return 404 Not Found for missing user")
     void login_shouldReturnNotFoundForMissingUser() throws Exception {
-        AuthRequest request = validAuthRequest();
-        request.setUsername("nouser");
-        request.setEmail("nouser@example.com");
-
         Mockito.when(authService.login(any(AuthRequest.class)))
                 .thenThrow(new UserNotFoundException());
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validAuthRequest)))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("User not found"));
     }
@@ -133,16 +126,13 @@ class AuthControllerTest {
     @Test
     @DisplayName("Refresh should return new AuthResponse")
     void refresh_shouldReturnAuthResponse() throws Exception {
-        RefreshRequest request = validRefreshRequest();
-
-        AuthResponse response = new AuthResponse("new-jwt-token", "refresh-token", "USER");
-        Mockito.when(authService.refreshToken(any(RefreshRequest.class))).thenReturn(response);
+        Mockito.when(authService.refreshToken(any(RefreshRequest.class))).thenReturn(validAuthResponse);
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validRefreshRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("new-jwt-token"))
+                .andExpect(jsonPath("$.token").value("jwt-token"))
                 .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.role").value("USER"));
     }
@@ -150,15 +140,12 @@ class AuthControllerTest {
     @Test
     @DisplayName("Refresh should return 401 Unauthorized for invalid refresh token")
     void refresh_shouldReturnUnauthorizedForInvalidToken() throws Exception {
-        RefreshRequest request = validRefreshRequest();
-        request.setRefreshToken("invalid-token");
-
         Mockito.when(authService.refreshToken(any(RefreshRequest.class)))
                 .thenThrow(new InvalidCredentialsException());
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(validRefreshRequest)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string("Invalid credentials"));
     }
@@ -166,11 +153,11 @@ class AuthControllerTest {
     @Test
     @DisplayName("Register should return 400 Bad Request for validation errors")
     void register_shouldReturnBadRequestForValidationErrors() throws Exception {
-        AuthRequest request = new AuthRequest(); // empty
+        AuthRequest invalidRequest = new AuthRequest(); // empty request
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.username").exists())
                 .andExpect(jsonPath("$.email").exists())
@@ -180,11 +167,11 @@ class AuthControllerTest {
     @Test
     @DisplayName("Login should return 400 Bad Request for validation errors")
     void login_shouldReturnBadRequestForValidationErrors() throws Exception {
-        AuthRequest request = new AuthRequest(); // empty
+        AuthRequest invalidRequest = new AuthRequest(); // empty request
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.username").exists())
                 .andExpect(jsonPath("$.email").exists())
@@ -194,11 +181,11 @@ class AuthControllerTest {
     @Test
     @DisplayName("Refresh should return 400 Bad Request for validation errors")
     void refresh_shouldReturnBadRequestForValidationErrors() throws Exception {
-        RefreshRequest request = new RefreshRequest(); // missing token
+        RefreshRequest invalidRequest = new RefreshRequest(); // missing token
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.refreshToken").exists());
     }
