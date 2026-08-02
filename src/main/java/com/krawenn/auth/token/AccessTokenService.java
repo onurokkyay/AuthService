@@ -16,10 +16,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class AccessTokenService {
 
-    /** Non-standard claims. Kept few: a token is a credential, not a profile. */
-    static final String ROLE_CLAIM = "role";
+    /**
+     * Non-standard claims, kept few: a token is a credential, not a profile. Public
+     * because they are part of the contract consuming services read.
+     */
+    public static final String ROLE_CLAIM = "role";
 
-    static final String USERNAME_CLAIM = "preferred_username";
+    public static final String USERNAME_CLAIM = "preferred_username";
 
     private final JwtEncoder jwtEncoder;
     private final AuthProperties properties;

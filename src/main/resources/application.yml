@@ -92,3 +92,6 @@ auth:
 logging:
   level:
     com.krawenn.auth: INFO
+  pattern:
+    # Carries the RequestIdFilter correlation id on every line.
+    level: "%5p [${spring.application.name},%X{requestId:-}]"
