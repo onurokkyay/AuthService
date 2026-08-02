@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets and keys — never commit ###
+.env
+*.pem
+*.p8
+*.key
+config/local/
