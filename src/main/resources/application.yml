@@ -1,0 +1,94 @@
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/authservice}
+    username: ${DB_USERNAME:auth}
+    password: ${DB_PASSWORD:auth}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 5000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # The schema is owned by Flyway; Hibernate only checks that it agrees.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: false
+
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+auth:
+  jwt:
+    # Both are also verified on incoming tokens, so consumers must be issued tokens by
+    # this exact issuer/audience pair.
+    issuer: ${AUTH_JWT_ISSUER:http://localhost:8081}
+    audience: ${AUTH_JWT_AUDIENCE:auth-service-clients}
+    access-token-ttl: ${AUTH_JWT_ACCESSTOKENTTL:15m}
+    # auth.jwt.private-key / auth.jwt.public-key are intentionally absent here.
+    # Set them to a PEM resource (for example file:/etc/auth/private.pem) in the
+    # deployment configuration. When unset, a throwaway key pair is generated at
+    # startup — convenient locally, refused in production by KeyPairFactory.
+
+  refresh-token:
+    ttl: ${AUTH_REFRESHTOKEN_TTL:30d}
+    cleanup-cron: ${AUTH_REFRESHTOKEN_CLEANUPCRON:0 15 3 * * *}
+
+  login:
+    max-failed-attempts: ${AUTH_LOGIN_MAXFAILEDATTEMPTS:5}
+    lock-duration: ${AUTH_LOGIN_LOCKDURATION:15m}
+
+  registration:
+    # Accounts registering with one of these emails are created as ADMIN.
+    bootstrap-admin-emails: ${AUTH_REGISTRATION_BOOTSTRAPADMINEMAILS:}
+
+  cors:
+    # Empty by default: a browser client has to be named explicitly.
+    allowed-origins: ${AUTH_CORS_ALLOWEDORIGINS:}
+    allowed-methods: GET,POST,PATCH,OPTIONS
+
+logging:
+  level:
+    com.krawenn.auth: INFO
