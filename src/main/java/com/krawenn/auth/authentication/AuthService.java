@@ -100,9 +100,14 @@ public class AuthService {
         }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             user.registerFailedLogin(
-                    now, properties.login().maxFailedAttempts(), properties.login().lockDuration());
+                    now,
+                    properties.login().maxFailedAttempts(),
+                    properties.login().lockDuration());
             if (user.isLocked(now)) {
-                log.warn("Locked user {} after {} failed attempts", user.getId(), properties.login().maxFailedAttempts());
+                log.warn(
+                        "Locked user {} after {} failed attempts",
+                        user.getId(),
+                        properties.login().maxFailedAttempts());
             } else {
                 log.warn("Login failed for user {}: wrong password", user.getId());
             }
@@ -114,14 +119,22 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    @Transactional
+    /**
+     * Deliberately <em>not</em> {@code @Transactional}.
+     *
+     * <p>{@link RefreshTokenService#rotate} owns the transaction because its reuse path
+     * must commit the revocation of every session while still failing the request. An
+     * outer transaction here would join it and apply its own rollback rules, silently
+     * undoing that revocation — the exact failure the integration test reproduces.
+     * Signing the access token needs no database access, so there is nothing to wrap.
+     */
     public TokenResponse refresh(String refreshToken) {
         RefreshTokenService.Rotation rotation = refreshTokenService.rotate(refreshToken);
         AccessToken accessToken = accessTokenService.issue(rotation.user());
         return TokenResponse.bearer(accessToken.value(), rotation.refreshToken(), accessToken.expiresInSeconds());
     }
 
-    @Transactional
+    /** Transaction boundary lives in {@link RefreshTokenService#revoke}. */
     public void logout(String refreshToken) {
         refreshTokenService.revoke(refreshToken);
     }
