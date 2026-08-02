@@ -44,8 +44,8 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
-                .oauth2ResourceServer(oauth2 ->
-                        oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                .oauth2ResourceServer(
+                        oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                                 .authenticationEntryPoint(errorHandlers))
                 .exceptionHandling(handling ->
                         handling.authenticationEntryPoint(errorHandlers).accessDeniedHandler(errorHandlers))

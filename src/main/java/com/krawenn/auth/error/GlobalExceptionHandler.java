@@ -42,17 +42,20 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleValidation(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
         List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> new ErrorResponse.FieldError(error.getField(), error.getDefaultMessage()))
                 .toList();
-        return respond(ErrorResponse.ofValidation(now(), "Request validation failed", request.getRequestURI(), fieldErrors));
+        return respond(
+                ErrorResponse.ofValidation(now(), "Request validation failed", request.getRequestURI(), fieldErrors));
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<ErrorResponse> handleMalformedRequest(Exception ex, HttpServletRequest request) {
         log.debug("Malformed request on {}: {}", request.getRequestURI(), ex.getMessage());
-        return respond(ErrorResponse.of(now(), ErrorCode.MALFORMED_REQUEST, "Request could not be parsed", request.getRequestURI()));
+        return respond(ErrorResponse.of(
+                now(), ErrorCode.MALFORMED_REQUEST, "Request could not be parsed", request.getRequestURI()));
     }
 
     /**
@@ -66,14 +69,17 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex, HttpServletRequest request) {
-        return respond(ErrorResponse.of(now(), ErrorCode.RESOURCE_NOT_FOUND, "Resource not found", request.getRequestURI()));
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        return respond(
+                ErrorResponse.of(now(), ErrorCode.RESOURCE_NOT_FOUND, "Resource not found", request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
-        return respond(ErrorResponse.of(now(), ErrorCode.INTERNAL_ERROR, "An unexpected error occurred", request.getRequestURI()));
+        return respond(ErrorResponse.of(
+                now(), ErrorCode.INTERNAL_ERROR, "An unexpected error occurred", request.getRequestURI()));
     }
 
     private Instant now() {

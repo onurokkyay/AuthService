@@ -10,7 +10,8 @@ import java.util.List;
  *
  * @param fieldErrors populated for validation failures only, omitted otherwise
  */
-public record ErrorResponse(Instant timestamp, ErrorCode code, String message, String path, List<FieldError> fieldErrors) {
+public record ErrorResponse(
+        Instant timestamp, ErrorCode code, String message, String path, List<FieldError> fieldErrors) {
 
     /**
      * A single rejected field.
@@ -25,7 +26,8 @@ public record ErrorResponse(Instant timestamp, ErrorCode code, String message, S
         return new ErrorResponse(timestamp, code, message, path, null);
     }
 
-    public static ErrorResponse ofValidation(Instant timestamp, String message, String path, List<FieldError> fieldErrors) {
+    public static ErrorResponse ofValidation(
+            Instant timestamp, String message, String path, List<FieldError> fieldErrors) {
         return new ErrorResponse(timestamp, ErrorCode.VALIDATION_FAILED, message, path, fieldErrors);
     }
 }

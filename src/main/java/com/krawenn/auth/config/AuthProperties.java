@@ -46,7 +46,8 @@ public record AuthProperties(
      * @param ttl lifetime of a newly issued refresh token; rotation does not extend it
      * @param cleanupCron when expired rows are deleted
      */
-    public record RefreshToken(@NotNull Duration ttl, @NotBlank String cleanupCron) {}
+    public record RefreshToken(
+            @NotNull Duration ttl, @NotBlank String cleanupCron) {}
 
     /**
      * Brute-force protection.
@@ -54,7 +55,8 @@ public record AuthProperties(
      * @param maxFailedAttempts consecutive failures before the account is locked
      * @param lockDuration how long the lock lasts
      */
-    public record Login(@Positive int maxFailedAttempts, @NotNull Duration lockDuration) {}
+    public record Login(
+            @Positive int maxFailedAttempts, @NotNull Duration lockDuration) {}
 
     /**
      * @param bootstrapAdminEmails accounts registering with one of these emails become
@@ -66,5 +68,6 @@ public record AuthProperties(
     /**
      * @param allowedOrigins empty by default — a browser client must be named explicitly
      */
-    public record Cors(@NotNull List<String> allowedOrigins, @NotNull List<String> allowedMethods) {}
+    public record Cors(
+            @NotNull List<String> allowedOrigins, @NotNull List<String> allowedMethods) {}
 }

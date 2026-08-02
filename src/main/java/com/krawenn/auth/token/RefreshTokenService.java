@@ -76,7 +76,8 @@ public class RefreshTokenService {
         Instant now = Instant.now(clock);
 
         if (stored.isRevoked()) {
-            int revoked = refreshTokenRepository.revokeAllActiveOf(stored.getUser().getId(), now);
+            int revoked =
+                    refreshTokenRepository.revokeAllActiveOf(stored.getUser().getId(), now);
             log.warn(
                     "Refresh token reuse detected for user {}; revoked {} active session(s)",
                     stored.getUser().getId(),

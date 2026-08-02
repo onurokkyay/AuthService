@@ -54,8 +54,7 @@ public class AccessTokenService {
                 .claim(USERNAME_CLAIM, user.getUsername())
                 .build();
 
-        String value =
-                jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String value = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
         return new AccessToken(value, Duration.between(issuedAt, expiresAt).toSeconds());
     }
 }
