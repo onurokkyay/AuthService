@@ -1,0 +1,28 @@
+spring:
+  jpa:
+    hibernate:
+      # Flyway still owns the schema; validation proves migrations and entities agree.
+      ddl-auto: validate
+
+auth:
+  jwt:
+    issuer: https://auth.test
+    audience: test-clients
+    access-token-ttl: 15m
+    # No keys configured: the test profile is one of the two where an ephemeral pair
+    # is allowed, which also exercises that code path.
+  refresh-token:
+    ttl: 30d
+    cleanup-cron: "0 0 3 * * *"
+  login:
+    max-failed-attempts: 3
+    lock-duration: 15m
+  registration:
+    bootstrap-admin-emails: admin@example.test
+  cors:
+    allowed-origins: https://client.test
+    allowed-methods: GET,POST,PATCH,OPTIONS
+
+logging:
+  level:
+    com.krawenn.auth: DEBUG
