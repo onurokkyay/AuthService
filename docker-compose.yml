@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: authservice
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d authservice"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth-service:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/authservice
+      DB_USERNAME: auth
+      DB_PASSWORD: auth
+      AUTH_JWT_ISSUER: http://localhost:8081
+      AUTH_JWT_AUDIENCE: auth-service-clients
+      AUTH_CORS_ALLOWEDORIGINS: http://localhost:3000
+      # Runs with a generated key pair, which is why this stack is for development
+      # only: every restart invalidates previously issued access tokens. For a real
+      # deployment mount a key pair and drop this profile (see README).
+      SPRING_PROFILES_ACTIVE: local
+    ports:
+      - "8081:8081"
+
+volumes:
+  auth-postgres-data:

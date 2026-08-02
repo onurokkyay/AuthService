@@ -1,33 +1,34 @@
-# ---- Stage 1: Build the application ----
-FROM gradle:8.7-jdk21 AS builder
+# ---- Build stage ----
+FROM eclipse-temurin:25-jdk-alpine AS build
+WORKDIR /workspace
 
-# Set working directory
-WORKDIR /app
-
-# Copy Gradle build files
-COPY build.gradle settings.gradle ./
+# Cache the Gradle distribution and dependencies across builds.
+COPY gradlew ./
 COPY gradle ./gradle
+COPY build.gradle settings.gradle gradle.properties ./
+RUN ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
 
-# Download dependencies
-RUN gradle build -x test --no-daemon || return 0
+COPY config ./config
+COPY src ./src
+RUN ./gradlew --no-daemon bootJar -x test
 
-# Copy rest of the source code
-COPY . .
+# ---- Layer extraction for image caching ----
+FROM eclipse-temurin:25-jre-alpine AS extract
+WORKDIR /extract
+COPY --from=build /workspace/build/libs/auth-service.jar app.jar
+RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
-# Build the Spring Boot application
-RUN gradle bootJar -x test --no-daemon
-
-# ---- Stage 2: Create minimal runtime image ----
-FROM eclipse-temurin:21-jre
-
-# Set working directory
+# ---- Runtime ----
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
-# Copy the built JAR from builder stage
-COPY --from=builder /app/build/libs/*.jar app.jar
+RUN addgroup -S auth && adduser -S auth -G auth
+USER auth
 
-# Expose the port your application runs on (change if not 8080)
-EXPOSE 8080
+COPY --from=extract /extract/extracted/dependencies/ ./
+COPY --from=extract /extract/extracted/spring-boot-loader/ ./
+COPY --from=extract /extract/extracted/snapshot-dependencies/ ./
+COPY --from=extract /extract/extracted/application/ ./
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+EXPOSE 8081
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "org.springframework.boot.loader.launch.JarLauncher"]
