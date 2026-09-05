@@ -31,4 +31,15 @@ COPY --from=extract /extract/extracted/snapshot-dependencies/ ./
 COPY --from=extract /extract/extracted/application/ ./
 
 EXPOSE 8081
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "org.springframework.boot.loader.launch.JarLauncher"]
+
+# `java -jar app.jar`, not JarLauncher.
+#
+# The extract step uses `-Djarmode=tools`, Spring Boot 3.3+'s replacement for
+# `-Djarmode=layertools`, and only the old mode suits JarLauncher: layertools exploded the fat
+# jar so the loader classes sat on the classpath. `tools` writes a thin jar whose manifest names
+# the real main class and points `Class-Path` at `lib/`, and leaves `spring-boot-loader/` empty --
+# so JarLauncher is not in the image and the container dies on start while the build stays green.
+#
+# The layer copies above are unchanged and still worth having: `dependencies/` lands as
+# `/app/lib/` and rebuilds only when a dependency moves.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

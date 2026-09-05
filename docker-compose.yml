@@ -6,7 +6,9 @@ services:
       POSTGRES_USER: auth
       POSTGRES_PASSWORD: auth
     ports:
-      - "5432:5432"
+      # 5433 on the host: GameAtlas's own PostgreSQL already holds 5432, and the two
+      # stacks are meant to run side by side. Inside the network the port is still 5432.
+      - "5433:5432"
     volumes:
       - auth-postgres-data:/var/lib/postgresql/data
     healthcheck:

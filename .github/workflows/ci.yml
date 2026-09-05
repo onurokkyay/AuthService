@@ -57,12 +57,75 @@ jobs:
           fi
 
   docker:
-    name: Docker image builds
+    name: Docker image builds and starts
     runs-on: ubuntu-latest
     needs: build
+
+    # The image is started, not only built. Building it proves nothing about whether it runs:
+    # the entrypoint named a loader class the `tools` jarmode does not ship, which built green
+    # and died with ClassNotFoundException the first time anyone started a container.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: authservice
+          POSTGRES_USER: auth
+          POSTGRES_PASSWORD: auth
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U auth -d authservice"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build image
         run: docker build -t auth-service:ci .
+
+      - name: Start it and verify it signs
+        run: |
+          # The local profile generates a key pair at startup, which is what makes this
+          # runnable without mounting one.
+          docker run -d --name auth-ci --network host \
+            -e DB_URL=jdbc:postgresql://localhost:5432/authservice \
+            -e DB_USERNAME=auth \
+            -e DB_PASSWORD=auth \
+            -e SPRING_PROFILES_ACTIVE=local \
+            auth-service:ci
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/actuator/health > /dev/null 2>&1; then
+              echo "Application answered on attempt $attempt"
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' auth-ci)" != "true" ]; then
+              echo "Container exited before answering:"
+              docker logs auth-ci
+              exit 1
+            fi
+            sleep 2
+            if [ "$attempt" = "60" ]; then
+              echo "Application never answered:"
+              docker logs auth-ci
+              exit 1
+            fi
+          done
+
+          # A health check only proves Spring started. JWKS proves the signing key loaded,
+          # which is the part a container gets wrong, and it is also the exact document
+          # every consuming service fetches to verify a token.
+          curl -fsS http://localhost:8081/.well-known/jwks.json | grep -q '"kty"' \
+            || { echo "JWKS did not contain a key"; docker logs auth-ci; exit 1; }
+          echo "JWKS served a key"
+
+          # Migrations ran against a database that started empty, so this also proves the
+          # schema builds from scratch.
+          docker logs auth-ci | grep -E "Started AuthApplication|Successfully applied"
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs auth-ci || true
