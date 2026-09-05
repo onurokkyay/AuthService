@@ -1,0 +1,28 @@
+# Everything Docker does not need in the build context. The image runs its own
+# `./gradlew bootJar`, so a host build here is at best ignored and at worst a stale class file
+# that quietly differs from the source next to it.
+build/
+.gradle/
+out/
+bin/
+
+# History, tooling and editor state.
+.git/
+.github/
+.claude/
+.idea/
+.vscode/
+*.iml
+
+# Local overrides and signing keys. The container reads its configuration from the environment
+# and mounts its key pair, so neither has a reason to enter a build context.
+config/application*.yml
+config/application*.properties
+*.pem
+.env
+.env.*
+
+# Documentation. None of it is compiled.
+docs/
+*.md
+!README.md

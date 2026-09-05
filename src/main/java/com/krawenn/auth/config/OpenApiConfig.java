@@ -3,40 +3,38 @@ package com.krawenn.auth.config;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.servers.Server;
-import org.springdoc.core.customizers.OpenApiCustomizer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-
-@Configuration
+/**
+ * API documentation.
+ *
+ * <p>No server URL is declared. The previous version hardcoded an API gateway, which
+ * made the documentation wrong wherever the service ran without one; springdoc infers
+ * the URL from the request instead.
+ */
+@Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
 
-    @Bean
-    public OpenAPI customOpenAPI() {
-        final String securitySchemeName = "bearerAuth";
+    private static final String BEARER_SCHEME = "bearerAuth";
 
+    @Bean
+    public OpenAPI openApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Auth API")
+                        .title("Auth Service API")
                         .version("v1")
-                        .description("JWT-based authentication API"))
-                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
-                .components(new Components().addSecuritySchemes(securitySchemeName,
-                        new SecurityScheme()
-                                .name(securitySchemeName)
-                                .type(SecurityScheme.Type.HTTP)
-                                .scheme("bearer")
-                                .bearerFormat("JWT")));
+                        .description("Generic authentication and authorization service. "
+                                + "Issues RS256 access tokens and rotating refresh tokens; "
+                                + "consumers verify tokens through /.well-known/jwks.json."))
+                .components(new Components()
+                        .addSecuritySchemes(
+                                BEARER_SCHEME,
+                                new SecurityScheme()
+                                        .name(BEARER_SCHEME)
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")));
     }
-
-    @Bean
-    public OpenApiCustomizer openApiCustomizer(@Value("${swagger.gateway-url}") String gatewayUrl) {
-        return openApi -> openApi.setServers(List.of(new Server().url(gatewayUrl)));
-    }
-
 }
