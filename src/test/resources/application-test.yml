@@ -22,6 +22,18 @@ auth:
   cors:
     allowed-origins: https://client.test
     allowed-methods: GET,POST,PATCH,OPTIONS
+  password-reset:
+    token-ttl: 30m
+    request-cooldown: 60s
+    link-template: https://client.test/reset-password?token={token}
+    cleanup-cron: "0 45 3 * * *"
+    mail:
+      # The integration test replaces the mailer and reads the link it was given.
+      enabled: false
+      from: no-reply@example.test
+      product-name: Test
+      subject: Reset your {product} password
+      body-template: "Open {link}"
 
 logging:
   level:

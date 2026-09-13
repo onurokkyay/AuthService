@@ -10,10 +10,11 @@ require configuration, not code.
 ## What it does, and what it does not
 
 **Owns:** registration, login, logout, refresh-token rotation, access-token signing,
-key publication, and a two-value role (`USER`, `ADMIN`).
+key publication, a two-value role (`USER`, `ADMIN`), and password reset and change —
+including sending the one email a reset needs.
 
-**Does not own:** business authorization, permissions, profile data, tenants, email
-delivery, password reset, MFA, or social login. Deciding what a user may do inside a
+**Does not own:** business authorization, permissions, profile data, tenants, general
+email delivery, MFA, or social login. Deciding what a user may do inside a
 domain is the consuming service's job — this service only says who they are.
 
 There is no permission table and no RBAC engine. That is a decision, not an omission: a
@@ -44,12 +45,29 @@ and unacceptable in production — see [Signing keys](#signing-keys).
 | POST | `/api/auth/login` | public | Exchange credentials for a token pair |
 | POST | `/api/auth/refresh` | public | Rotate a refresh token into a new pair |
 | POST | `/api/auth/logout` | public | Revoke a refresh token (`204`) |
+| POST | `/api/auth/password/forgot` | public | Email a reset link (`202`, whether or not the address has an account) |
+| POST | `/api/auth/password/reset` | public | Set a new password from the link's token (`204`) |
+| POST | `/api/auth/password/change` | bearer token | Change the password; returns a fresh token pair |
 | GET | `/api/auth/me` | bearer token | The account behind the token |
 | PATCH | `/api/admin/users/{id}/role` | `ADMIN` | Assign a role |
 | GET | `/.well-known/jwks.json` | public | Public verification keys |
 
 `logout` is public on purpose: it authenticates through the refresh token in the body, so
 a client whose access token has already expired can still end its session.
+
+### Password reset
+
+1. The client posts `{"email": "…"}` to `/password/forgot` and always gets `202`.
+2. If the address belongs to an enabled account, an email goes out with a link built from
+   `auth.password-reset.link-template` — a page of the consuming application, not of this
+   service.
+3. That page posts `{"token": "…", "newPassword": "…"}` to `/password/reset`. An unknown,
+   expired or already-used token is `400 INVALID_RESET_TOKEN`.
+
+`/password/change` takes `{"currentPassword": "…", "newPassword": "…"}`. A wrong current
+password is `400 INVALID_CURRENT_PASSWORD` — deliberately not `401`, which a client would
+answer by refreshing its token and retrying. New passwords follow the registration rules
+(12–72 characters).
 
 ### Errors
 
@@ -116,6 +134,20 @@ rather than failing on the first request.
 | `auth.login.lock-duration` | `AUTH_LOGIN_LOCKDURATION` | `15m` | Lockout length |
 | `auth.registration.bootstrap-admin-emails` | `AUTH_REGISTRATION_BOOTSTRAPADMINEMAILS` | empty | Emails registered as `ADMIN` |
 | `auth.cors.allowed-origins` | `AUTH_CORS_ALLOWEDORIGINS` | empty | Browser origins; empty denies all |
+| `auth.password-reset.token-ttl` | `AUTH_PASSWORDRESET_TOKENTTL` | `30m` | How long a reset link works |
+| `auth.password-reset.request-cooldown` | `AUTH_PASSWORDRESET_REQUESTCOOLDOWN` | `60s` | Minimum gap between links to one account |
+| `auth.password-reset.link-template` | `AUTH_PASSWORDRESET_LINKTEMPLATE` | `http://localhost:3000/reset-password?token={token}` | The emailed link; must contain `{token}` |
+| `auth.password-reset.cleanup-cron` | `AUTH_PASSWORDRESET_CLEANUPCRON` | `0 45 3 * * *` | Expired-link deletion schedule |
+| `auth.password-reset.mail.enabled` | `AUTH_PASSWORDRESET_MAIL_ENABLED` | `false` | Send reset emails at all |
+| `auth.password-reset.mail.from` | `AUTH_PASSWORDRESET_MAIL_FROM` | `no-reply@localhost` | Sender address |
+| `auth.password-reset.mail.product-name` | `AUTH_PASSWORDRESET_MAIL_PRODUCTNAME` | `Auth Service` | `{product}` in subject and body |
+| `auth.password-reset.mail.subject` | `AUTH_PASSWORDRESET_MAIL_SUBJECT` | `Reset your {product} password` | Subject template |
+| `auth.password-reset.mail.body-template` | `AUTH_PASSWORDRESET_MAIL_BODYTEMPLATE` | English text | Body; `{username}`, `{product}`, `{minutes}`, and a required `{link}` |
+| `spring.mail.host` / `.port` / `.username` / `.password` | `SPRING_MAIL_HOST` … | unset | SMTP server; needed once mail is enabled |
+
+With mail enabled but no `SPRING_MAIL_HOST`, the service still starts and logs an error for
+each reset it cannot send. For local development any SMTP catcher works, for example
+[Mailpit](https://mailpit.axllent.org/) on port 1025.
 
 > **Environment variable names have no hyphens.** Spring maps `auth.jwt.private-key` to
 > `AUTH_JWT_PRIVATEKEY` — the hyphen is removed, not replaced by an underscore.
@@ -160,7 +192,19 @@ Worth knowing before integrating, because some of it is deliberately unhelpful t
   or the legitimate client is replaying, and there is no way to tell which, so the safe
   reading is theft. Expect users to be signed out everywhere when this triggers.
 - **Multiple devices are supported.** Logging in does not disturb existing sessions.
-- **Accounts lock** after the configured number of consecutive failures.
+- **Accounts lock** after the configured number of consecutive failures. A wrong current
+  password on `/password/change` counts as one, so a stolen access token cannot be used to
+  guess the password behind it. A successful reset lifts the lock.
+- **Asking for a reset link reveals nothing.** Every request gets the same `202`, and the
+  email is sent on another thread so response time does not tell an existing address from a
+  missing one. One link per account per cooldown keeps it from filling an inbox.
+- **Reset links are single-use credentials.** Stored only as a SHA-256 digest, valid for
+  30 minutes, and asking for a new link retires the previous one. Links and addresses are
+  never logged.
+- **A reset or change ends every other session.** A reset signs the account out
+  everywhere; a change keeps only the caller, who receives a new token pair. Those sessions'
+  refresh tokens are deleted rather than revoked, so a device refreshing afterwards gets a
+  plain `401` instead of setting off reuse detection against the new session.
 - **Nothing secret is ever logged.** Not passwords, not tokens, not token digests, not
   keys. Log lines identify accounts by UUID.
 - **An inbound `X-Request-Id`** is echoed and attached to every log line for that request,

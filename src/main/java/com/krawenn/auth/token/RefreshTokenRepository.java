@@ -19,6 +19,19 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Query("update RefreshToken t set t.revokedAt = :now where t.user.id = :userId and t.revokedAt is null")
     int revokeAllActiveOf(@Param("userId") UUID userId, @Param("now") Instant now);
 
+    /**
+     * Ends every session of an account without leaving evidence of them behind, for a password change or reset.
+     *
+     * <p>Deleted rather than revoked, and the difference is what the other devices do next. A revoked token presented
+     * later reads as a replayed one, and reuse detection would then revoke the session the password change had just
+     * issued: change the password on one device, and the next background refresh on another signs you out of the first.
+     * Deleted, the stale token is simply unknown and gets a plain {@code 401}. Nothing is lost -- every session of the
+     * account has ended, so there is none left for these rows to protect.
+     */
+    @Modifying
+    @Query("delete from RefreshToken t where t.user.id = :userId")
+    int deleteAllOf(@Param("userId") UUID userId);
+
     /** Expired rows can no longer prove reuse, so they are safe to delete. */
     @Modifying
     @Query("delete from RefreshToken t where t.expiresAt < :cutoff")
