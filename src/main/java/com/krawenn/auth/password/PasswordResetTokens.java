@@ -4,12 +4,14 @@ import com.krawenn.auth.config.AuthProperties;
 import com.krawenn.auth.token.OpaqueTokens;
 import com.krawenn.auth.user.User;
 import com.krawenn.auth.user.UserRepository;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,36 +28,49 @@ public class PasswordResetTokens {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordResetTokens.class);
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final int CODE_BOUND = 1_000_000;
+
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
+    private final PasswordEncoder passwordEncoder;
     private final AuthProperties properties;
     private final Clock clock;
 
     public PasswordResetTokens(
             UserRepository userRepository,
             PasswordResetTokenRepository tokenRepository,
+            PasswordEncoder passwordEncoder,
             AuthProperties properties,
             Clock clock) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
+        this.passwordEncoder = passwordEncoder;
         this.properties = properties;
         this.clock = clock;
     }
 
     /**
-     * Issues a reset token for the account with this email, when there is one that may have it.
+     * Issues a reset token and code for the account with this email, when there is one that may have them.
      *
      * <p>Says nothing about why nothing was issued. An unknown address, a disabled account and a second request inside
      * the cooldown all end the same way for the caller — anything else would turn the endpoint into a way of finding
      * out which addresses have accounts.
      *
+     * <p><b>The code is hashed before anything is looked up.</b> BCrypt is the slow part of this method by far, and
+     * doing it only when an account exists would let the response time answer the question the uniform {@code 202}
+     * leaves open.
+     *
      * <p>The cooldown is what stops the endpoint being used to fill somebody's inbox. Asking again after it retires the
-     * previous link, so only the newest email in an inbox ever works.
+     * previous request, so only the newest email in an inbox ever works.
      *
      * @return what the mailer needs, or empty when no email should be sent
      */
     @Transactional
     public Optional<IssuedReset> issue(String email) {
+        String code = "%06d".formatted(RANDOM.nextInt(CODE_BOUND));
+        String codeHash = passwordEncoder.encode(code);
+
         Optional<User> found = userRepository.findByEmailIgnoreCase(email);
         if (found.isEmpty()) {
             // Neither the address nor a hint of it: this line is written for every miss.
@@ -85,11 +100,12 @@ public class PasswordResetTokens {
         tokenRepository.save(new PasswordResetToken(
                 user,
                 OpaqueTokens.hash(rawToken),
+                codeHash,
                 now.plus(properties.passwordReset().tokenTtl())));
         log.info("Issued a password reset token for user {}", user.getId());
 
         String link = properties.passwordReset().linkTemplate().replace("{token}", rawToken);
-        return Optional.of(new IssuedReset(user.getId(), user.getEmail(), user.getUsername(), link));
+        return Optional.of(new IssuedReset(user.getId(), user.getEmail(), user.getUsername(), link, code));
     }
 
     /** Deletes tokens that expired and can therefore no longer be used. */
@@ -101,10 +117,12 @@ public class PasswordResetTokens {
     /**
      * What delivering one reset takes.
      *
-     * @param link carries the raw token, which makes it a credential; {@link #toString()} leaves it out so that logging
-     *     this record by accident cannot put a working reset link into a log file
+     * @param link carries the raw token, which makes it a credential
+     * @param code the six digits for clients that cannot open the link; as much a credential as the link.
+     *     {@link #toString()} leaves both out so that logging this record by accident cannot put a working reset into a
+     *     log file
      */
-    public record IssuedReset(UUID userId, String email, String username, String link) {
+    public record IssuedReset(UUID userId, String email, String username, String link, String code) {
 
         @Override
         public String toString() {

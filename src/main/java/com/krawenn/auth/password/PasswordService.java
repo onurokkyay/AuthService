@@ -3,6 +3,7 @@ package com.krawenn.auth.password;
 import com.krawenn.auth.api.dto.TokenResponse;
 import com.krawenn.auth.config.AuthProperties;
 import com.krawenn.auth.error.InvalidCurrentPasswordException;
+import com.krawenn.auth.error.InvalidResetCodeException;
 import com.krawenn.auth.error.InvalidResetTokenException;
 import com.krawenn.auth.error.UserNotFoundException;
 import com.krawenn.auth.token.AccessToken;
@@ -14,6 +15,7 @@ import com.krawenn.auth.user.User;
 import com.krawenn.auth.user.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class PasswordService {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordService.class);
+
+    /** Hashed when there is no request to check a code against, so that a miss costs what a check does. */
+    private static final String TIMING_EQUALIZER_CODE = "000000";
 
     private final PasswordResetTokens resetTokens;
     private final PasswordResetTokenRepository resetTokenRepository;
@@ -79,6 +84,54 @@ public class PasswordService {
      */
     public void requestReset(String email) {
         resetTokens.issue(email).ifPresent(reset -> mailExecutor.execute(() -> mailer.send(reset)));
+    }
+
+    /**
+     * Exchanges the code from a reset email for a reset token, for a client that cannot open the link.
+     *
+     * <p>The token answered here is spent through {@link #resetPassword} like the one in the link, which keeps a single
+     * way of actually setting the password. Exchanging also spends the code and retires the link: one request, one
+     * reset.
+     *
+     * <p><b>Six digits can be guessed; this is where guessing is made slow.</b> Every wrong code counts against the
+     * request, and at {@code max-code-attempts} the request is retired, link included. With the cooldown between
+     * requests, that caps an attacker at a handful of guesses a minute out of a million, each one mailing the owner.
+     *
+     * <p>A wrong code, an expired or retired request, and an address with no account all get the same answer, and the
+     * miss does the BCrypt work a real check would, so neither the body nor the clock tells them apart.
+     *
+     * @throws InvalidResetCodeException for every way the code fails to unlock a reset
+     */
+    @Transactional(noRollbackFor = InvalidResetCodeException.class)
+    public String exchangeCode(String email, String code) {
+        Instant now = Instant.now(clock);
+        Optional<PasswordResetToken> usable = userRepository
+                .findByEmailIgnoreCase(email)
+                .filter(User::isEnabled)
+                .flatMap(user -> resetTokenRepository.findUsableOf(user.getId(), now));
+        if (usable.isEmpty()) {
+            passwordEncoder.encode(TIMING_EQUALIZER_CODE);
+            log.info("Password reset code presented for an address with no open request");
+            throw new InvalidResetCodeException();
+        }
+
+        PasswordResetToken token = usable.get();
+        UUID userId = token.getUser().getId();
+        if (!token.codeMatches(code, passwordEncoder)) {
+            boolean retired = token.registerFailedCodeAttempt(
+                    now, properties.passwordReset().maxCodeAttempts());
+            log.warn(
+                    "Wrong password reset code for user {} (attempt {}){}",
+                    userId,
+                    token.getFailedCodeAttempts(),
+                    retired ? "; request retired" : "");
+            throw new InvalidResetCodeException();
+        }
+
+        String rawToken = OpaqueTokens.generate();
+        token.exchangeCodeFor(OpaqueTokens.hash(rawToken));
+        log.info("Exchanged a password reset code for user {}", userId);
+        return rawToken;
     }
 
     /**

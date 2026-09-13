@@ -5,9 +5,11 @@ import com.krawenn.auth.api.dto.ForgotPasswordRequest;
 import com.krawenn.auth.api.dto.LoginRequest;
 import com.krawenn.auth.api.dto.RefreshTokenRequest;
 import com.krawenn.auth.api.dto.RegisterRequest;
+import com.krawenn.auth.api.dto.ResetCodeResponse;
 import com.krawenn.auth.api.dto.ResetPasswordRequest;
 import com.krawenn.auth.api.dto.TokenResponse;
 import com.krawenn.auth.api.dto.UserResponse;
+import com.krawenn.auth.api.dto.VerifyResetCodeRequest;
 import com.krawenn.auth.authentication.AuthService;
 import com.krawenn.auth.password.PasswordService;
 import com.krawenn.auth.user.UserService;
@@ -84,6 +86,17 @@ public class AuthController {
                     + "again after it retires the previous link.")
     public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         passwordService.requestReset(request.email());
+    }
+
+    @PostMapping("/password/verify-code")
+    @Operation(
+            summary = "Exchange the code from a reset email for a reset token",
+            description = "For clients that cannot open the emailed link, such as a mobile application. The answered "
+                    + "resetToken goes to /password/reset exactly like the link's token; the code and the link stop "
+                    + "working. 400 INVALID_RESET_CODE for a wrong, expired or already used code and for an address "
+                    + "with no account — one answer for all. Too many wrong codes retire the request.")
+    public ResetCodeResponse verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
+        return new ResetCodeResponse(passwordService.exchangeCode(request.email(), request.code()));
     }
 
     @PostMapping("/password/reset")

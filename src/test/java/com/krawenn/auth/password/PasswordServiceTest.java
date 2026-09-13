@@ -12,9 +12,11 @@ import static org.mockito.Mockito.when;
 import com.krawenn.auth.TestAuthProperties;
 import com.krawenn.auth.api.dto.TokenResponse;
 import com.krawenn.auth.error.InvalidCurrentPasswordException;
+import com.krawenn.auth.error.InvalidResetCodeException;
 import com.krawenn.auth.error.InvalidResetTokenException;
 import com.krawenn.auth.token.AccessToken;
 import com.krawenn.auth.token.AccessTokenService;
+import com.krawenn.auth.token.OpaqueTokens;
 import com.krawenn.auth.token.RefreshTokenRepository;
 import com.krawenn.auth.token.RefreshTokenService;
 import com.krawenn.auth.user.TestUsers;
@@ -45,6 +47,7 @@ class PasswordServiceTest {
     private static final Instant NOW = Instant.parse("2026-01-01T12:00:00Z");
     private static final UUID USER_ID = UUID.fromString("01900000-0000-7000-8000-000000000001");
     private static final String NEW_PASSWORD = "a-brand-new-password";
+    private static final String EMAIL = "test@example.test";
 
     @Mock
     private PasswordResetTokens resetTokens;
@@ -95,14 +98,57 @@ class PasswordServiceTest {
     }
 
     private PasswordResetToken tokenExpiringAt(Instant expiresAt) {
-        return new PasswordResetToken(user, "digest", expiresAt);
+        return new PasswordResetToken(user, "digest", "code-hash", expiresAt);
+    }
+
+    @Test
+    @DisplayName("A right code is exchanged for a fresh reset token, and works only once")
+    void rightCodeIsExchangedOnce() {
+        PasswordResetToken request = tokenExpiringAt(NOW.plusSeconds(600));
+        when(userRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(user));
+        when(resetTokenRepository.findUsableOf(USER_ID, NOW)).thenReturn(Optional.of(request));
+        when(passwordEncoder.matches("123456", "code-hash")).thenReturn(true);
+
+        String resetToken = passwordService.exchangeCode(EMAIL, "123456");
+
+        assertThat(ReflectionTestUtils.getField(request, "tokenHash")).isEqualTo(OpaqueTokens.hash(resetToken));
+        assertThatExceptionOfType(InvalidResetCodeException.class)
+                .isThrownBy(() -> passwordService.exchangeCode(EMAIL, "123456"));
+    }
+
+    @Test
+    @DisplayName("Wrong codes count, and the last one allowed retires the request")
+    void wrongCodesRetireTheRequest() {
+        PasswordResetToken request = tokenExpiringAt(NOW.plusSeconds(600));
+        when(userRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(user));
+        when(resetTokenRepository.findUsableOf(USER_ID, NOW)).thenReturn(Optional.of(request));
+        when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
+
+        for (int attempt = 1; attempt <= TestAuthProperties.RESET_MAX_CODE_ATTEMPTS; attempt++) {
+            assertThat(request.isUsable(NOW)).isTrue();
+            assertThatExceptionOfType(InvalidResetCodeException.class)
+                    .isThrownBy(() -> passwordService.exchangeCode(EMAIL, "000000"));
+        }
+
+        assertThat(request.getFailedCodeAttempts()).isEqualTo(TestAuthProperties.RESET_MAX_CODE_ATTEMPTS);
+        assertThat(request.isUsable(NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("An address with no open request gets the same refusal after the same BCrypt work")
+    void noOpenRequestLooksLikeAWrongCode() {
+        when(userRepository.findByEmailIgnoreCase("nobody@example.test")).thenReturn(Optional.empty());
+
+        assertThatExceptionOfType(InvalidResetCodeException.class)
+                .isThrownBy(() -> passwordService.exchangeCode("nobody@example.test", "123456"));
+        verify(passwordEncoder).encode("000000");
     }
 
     @Test
     @DisplayName("A reset link is mailed only when a token was actually issued")
     void mailIsSentOnlyForAnIssuedToken() {
         PasswordResetTokens.IssuedReset reset = new PasswordResetTokens.IssuedReset(
-                USER_ID, "test@example.test", "testuser", "https://client.test/reset-password?token=abc");
+                USER_ID, "test@example.test", "testuser", "https://client.test/reset-password?token=abc", "123456");
         when(resetTokens.issue("test@example.test")).thenReturn(Optional.of(reset));
 
         passwordService.requestReset("test@example.test");

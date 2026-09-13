@@ -45,7 +45,8 @@ and unacceptable in production — see [Signing keys](#signing-keys).
 | POST | `/api/auth/login` | public | Exchange credentials for a token pair |
 | POST | `/api/auth/refresh` | public | Rotate a refresh token into a new pair |
 | POST | `/api/auth/logout` | public | Revoke a refresh token (`204`) |
-| POST | `/api/auth/password/forgot` | public | Email a reset link (`202`, whether or not the address has an account) |
+| POST | `/api/auth/password/forgot` | public | Email a reset link and code (`202`, whether or not the address has an account) |
+| POST | `/api/auth/password/verify-code` | public | Exchange the emailed code for a reset token |
 | POST | `/api/auth/password/reset` | public | Set a new password from the link's token (`204`) |
 | POST | `/api/auth/password/change` | bearer token | Change the password; returns a fresh token pair |
 | GET | `/api/auth/me` | bearer token | The account behind the token |
@@ -63,6 +64,12 @@ a client whose access token has already expired can still end its session.
    service.
 3. That page posts `{"token": "…", "newPassword": "…"}` to `/password/reset`. An unknown,
    expired or already-used token is `400 INVALID_RESET_TOKEN`.
+
+The same email carries a six-digit code, for clients that cannot open a link — typically a
+mobile application without verified app links. The client posts `{"email": "…", "code": "…"}`
+to `/password/verify-code` and gets `{"resetToken": "…"}`, which goes to `/password/reset`
+exactly like the link's token. A wrong, expired or used code — or an address with no
+account — is `400 INVALID_RESET_CODE`. Exchanging a code spends it and retires the link.
 
 `/password/change` takes `{"currentPassword": "…", "newPassword": "…"}`. A wrong current
 password is `400 INVALID_CURRENT_PASSWORD` — deliberately not `401`, which a client would
@@ -136,13 +143,14 @@ rather than failing on the first request.
 | `auth.cors.allowed-origins` | `AUTH_CORS_ALLOWEDORIGINS` | empty | Browser origins; empty denies all |
 | `auth.password-reset.token-ttl` | `AUTH_PASSWORDRESET_TOKENTTL` | `30m` | How long a reset link works |
 | `auth.password-reset.request-cooldown` | `AUTH_PASSWORDRESET_REQUESTCOOLDOWN` | `60s` | Minimum gap between links to one account |
+| `auth.password-reset.max-code-attempts` | `AUTH_PASSWORDRESET_MAXCODEATTEMPTS` | `5` | Wrong codes before a request is retired |
 | `auth.password-reset.link-template` | `AUTH_PASSWORDRESET_LINKTEMPLATE` | `http://localhost:3000/reset-password?token={token}` | The emailed link; must contain `{token}` |
 | `auth.password-reset.cleanup-cron` | `AUTH_PASSWORDRESET_CLEANUPCRON` | `0 45 3 * * *` | Expired-link deletion schedule |
 | `auth.password-reset.mail.enabled` | `AUTH_PASSWORDRESET_MAIL_ENABLED` | `false` | Send reset emails at all |
 | `auth.password-reset.mail.from` | `AUTH_PASSWORDRESET_MAIL_FROM` | `no-reply@localhost` | Sender address |
 | `auth.password-reset.mail.product-name` | `AUTH_PASSWORDRESET_MAIL_PRODUCTNAME` | `Auth Service` | `{product}` in subject and body |
 | `auth.password-reset.mail.subject` | `AUTH_PASSWORDRESET_MAIL_SUBJECT` | `Reset your {product} password` | Subject template |
-| `auth.password-reset.mail.body-template` | `AUTH_PASSWORDRESET_MAIL_BODYTEMPLATE` | English text | Body; `{username}`, `{product}`, `{minutes}`, and a required `{link}` |
+| `auth.password-reset.mail.body-template` | `AUTH_PASSWORDRESET_MAIL_BODYTEMPLATE` | English text | Body; `{username}`, `{product}`, `{minutes}`, `{code}`, and a required `{link}` |
 | `spring.mail.host` / `.port` / `.username` / `.password` | `SPRING_MAIL_HOST` … | unset | SMTP server; needed once mail is enabled |
 
 With mail enabled but no `SPRING_MAIL_HOST`, the service still starts and logs an error for
@@ -199,8 +207,14 @@ Worth knowing before integrating, because some of it is deliberately unhelpful t
   email is sent on another thread so response time does not tell an existing address from a
   missing one. One link per account per cooldown keeps it from filling an inbox.
 - **Reset links are single-use credentials.** Stored only as a SHA-256 digest, valid for
-  30 minutes, and asking for a new link retires the previous one. Links and addresses are
-  never logged.
+  30 minutes, and asking for a new link retires the previous one. Links, codes and
+  addresses are never logged.
+- **Reset codes are guessable, so guessing is capped.** Codes are stored as BCrypt (a fast
+  digest of six digits is reversed by trying all of them), and the configured number of
+  wrong codes retires the request, link included. With the cooldown that leaves a handful of
+  guesses a minute out of a million, each one emailing the owner. Both hashing the code on
+  request and checking it on exchange do the same BCrypt work whether or not the account
+  exists.
 - **A reset or change ends every other session.** A reset signs the account out
   everywhere; a change keeps only the caller, who receives a new token pair. Those sessions'
   refresh tokens are deleted rather than revoked, so a device refreshing afterwards gets a
