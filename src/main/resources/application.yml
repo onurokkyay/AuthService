@@ -101,6 +101,9 @@ auth:
     # How long an account waits before another link is sent. What keeps the endpoint from
     # being used to fill somebody's inbox.
     request-cooldown: ${AUTH_PASSWORDRESET_REQUESTCOOLDOWN:60s}
+    # Wrong codes before a request is retired, link included. The emailed code is six digits,
+    # so this and the cooldown are what keep it from being guessed.
+    max-code-attempts: ${AUTH_PASSWORDRESET_MAXCODEATTEMPTS:5}
     # Where the emailed link points: a page of the consuming application, which posts the
     # token back to /api/auth/password/reset. {token} is replaced with the token.
     link-template: ${AUTH_PASSWORDRESET_LINKTEMPLATE:http://localhost:3000/reset-password?token={token}}
@@ -121,6 +124,8 @@ auth:
         open this link within {minutes} minutes to choose a new one:
 
         {link}
+
+        Or enter this code in the app: {code}
 
         If it was not you, you can ignore this email. Your password has not changed.
 

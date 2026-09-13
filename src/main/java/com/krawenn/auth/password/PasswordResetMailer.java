@@ -20,7 +20,8 @@ import org.springframework.stereotype.Component;
  * gone. There is nothing left to fail, and nothing a retry in here could achieve that the person asking again after the
  * cooldown cannot.
  *
- * <p><b>Neither the link nor the address is logged.</b> The link is a credential until it expires, and log lines in this
+ * <p><b>Neither the link, the code nor the address is logged.</b> The link and the code are credentials until they
+ * expire, and log lines in this
  * service identify accounts by id. An SMTP error can quote the recipient back, which is why only its type is logged at
  * error level and the full exception waits for debug.
  *
@@ -84,6 +85,7 @@ public class PasswordResetMailer {
                 .replace(
                         "{minutes}",
                         String.valueOf(properties.passwordReset().tokenTtl().toMinutes()))
-                .replace("{link}", reset.link());
+                .replace("{link}", reset.link())
+                .replace("{code}", reset.code());
     }
 }

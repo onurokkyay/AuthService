@@ -15,6 +15,7 @@ public final class PublicEndpoints {
         // the same way whether or not the account exists, so being reachable leaks nothing.
         // Changing a password while signed in is deliberately not here.
         "/api/auth/password/forgot",
+        "/api/auth/password/verify-code",
         "/api/auth/password/reset",
         // Consumers fetch verification keys before they can validate anything.
         "/.well-known/jwks.json",

@@ -80,6 +80,8 @@ public record AuthProperties(
      *     for as long as it lives
      * @param requestCooldown how long an account waits before another link is sent — what
      *     keeps the endpoint from being used to fill somebody's inbox
+     * @param maxCodeAttempts wrong codes before the request is retired, link included. Six
+     *     digits are guessable; this, together with the cooldown, is what makes guessing slow.
      * @param linkTemplate where the emailed link points, with {@code {token}} where the token
      *     goes. A page of the consuming application, which posts the token back here.
      * @param cleanupCron when expired tokens are deleted
@@ -88,6 +90,7 @@ public record AuthProperties(
     public record PasswordReset(
             @NotNull Duration tokenTtl,
             @NotNull Duration requestCooldown,
+            @Positive int maxCodeAttempts,
 
             @NotBlank @Pattern(regexp = ".*\\{token}.*", message = "must contain {token}")
             String linkTemplate,
@@ -104,8 +107,8 @@ public record AuthProperties(
          * @param from sender address
          * @param productName substituted for {@code {product}}
          * @param subject may use {@code {product}}
-         * @param bodyTemplate must contain {@code {link}}; may use {@code {product}},
-         *     {@code {username}} and {@code {minutes}}
+         * @param bodyTemplate must contain {@code {link}}; may use {@code {code}},
+         *     {@code {product}}, {@code {username}} and {@code {minutes}}
          */
         public record Mail(
                 boolean enabled,

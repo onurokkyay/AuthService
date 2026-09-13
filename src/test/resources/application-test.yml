@@ -25,6 +25,7 @@ auth:
   password-reset:
     token-ttl: 30m
     request-cooldown: 60s
+    max-code-attempts: 3
     link-template: https://client.test/reset-password?token={token}
     cleanup-cron: "0 45 3 * * *"
     mail:

@@ -2,6 +2,7 @@ package com.krawenn.auth.password;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,25 +45,46 @@ class PasswordResetTokensTest {
     @Mock
     private PasswordResetTokenRepository tokenRepository;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     private PasswordResetTokens resetTokens;
     private User user;
 
     @BeforeEach
     void setUp() {
         resetTokens = new PasswordResetTokens(
-                userRepository, tokenRepository, TestAuthProperties.create(), Clock.fixed(NOW, ZoneOffset.UTC));
+                userRepository,
+                tokenRepository,
+                passwordEncoder,
+                TestAuthProperties.create(),
+                Clock.fixed(NOW, ZoneOffset.UTC));
         user = TestUsers.withId(USER_ID);
         when(userRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(user));
         when(tokenRepository.findLatestIssuedAt(USER_ID)).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(anyString())).thenAnswer(call -> "bcrypt:" + call.getArgument(0));
     }
 
     @Test
-    @DisplayName("An address with no account issues nothing")
+    @DisplayName("An address with no account issues nothing, but costs the same BCrypt work as one that has")
     void unknownAddressIssuesNothing() {
         when(userRepository.findByEmailIgnoreCase("nobody@example.test")).thenReturn(Optional.empty());
 
         assertThat(resetTokens.issue("nobody@example.test")).isEmpty();
         verify(tokenRepository, never()).save(any());
+        verify(passwordEncoder).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("The code is six digits and only its BCrypt hash is stored")
+    void codeIsSixDigitsAndStoredHashed() {
+        PasswordResetTokens.IssuedReset reset = resetTokens.issue(EMAIL).orElseThrow();
+
+        ArgumentCaptor<PasswordResetToken> stored = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(tokenRepository).save(stored.capture());
+
+        assertThat(reset.code()).matches("\\d{6}");
+        assertThat(ReflectionTestUtils.getField(stored.getValue(), "codeHash")).isEqualTo("bcrypt:" + reset.code());
     }
 
     @Test
@@ -113,12 +136,13 @@ class PasswordResetTokensTest {
     }
 
     @Test
-    @DisplayName("Printing what was issued never prints the link")
+    @DisplayName("Printing what was issued never prints the link or the code")
     void issuedResetDoesNotPrintTheLink() {
         PasswordResetTokens.IssuedReset reset = resetTokens.issue(EMAIL).orElseThrow();
 
         assertThat(reset.toString())
                 .doesNotContain(reset.link())
+                .doesNotContain(reset.code())
                 .doesNotContain("token=")
                 .doesNotContain(EMAIL);
     }

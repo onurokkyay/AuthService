@@ -1,6 +1,7 @@
 package com.krawenn.auth.password;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,18 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     /** Fetches the owner eagerly: a reset always changes the account the token belongs to. */
     @Query("select t from PasswordResetToken t join fetch t.user where t.tokenHash = :tokenHash")
     Optional<PasswordResetToken> findByTokenHash(@Param("tokenHash") String tokenHash);
+
+    /**
+     * The request a code can still unlock. There is at most one, because issuing retires the rest; a list rather than an
+     * {@code Optional} only so that two requests racing past each other cannot turn a code check into an exception.
+     */
+    @Query("select t from PasswordResetToken t join fetch t.user where t.user.id = :userId and t.usedAt is null "
+            + "and t.expiresAt > :now order by t.createdAt desc")
+    List<PasswordResetToken> findUsable(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    default Optional<PasswordResetToken> findUsableOf(UUID userId, Instant now) {
+        return findUsable(userId, now).stream().findFirst();
+    }
 
     /** When this account was last sent a link, for the cooldown between requests. */
     @Query("select max(t.createdAt) from PasswordResetToken t where t.user.id = :userId")

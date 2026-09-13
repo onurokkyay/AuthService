@@ -93,6 +93,85 @@ class PasswordResetFlowIntegrationTest {
     }
 
     @Test
+    @DisplayName("A mobile client exchanges the emailed code for a token and resets with it, once")
+    void codeIsExchangedAndSpent() throws Exception {
+        String username = uniqueUsername();
+        String email = username + "@example.test";
+        register(username, email);
+
+        requestReset(email);
+        PasswordResetTokens.IssuedReset mailed = mailedReset();
+
+        String answer = mockMvc.perform(post("/api/auth/password/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(codeBody(email, mailed.code())))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String resetToken = JsonPath.read(answer, "$.resetToken");
+
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resetBody(resetToken, NEW_PASSWORD)))
+                .andExpect(status().isNoContent());
+        login(username, NEW_PASSWORD);
+
+        // The code has done its job: neither it nor the link beside it opens a second reset.
+        mockMvc.perform(post("/api/auth/password/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(codeBody(email, mailed.code())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_CODE"));
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resetBody(tokenOf(mailed), "yet-another-passphrase")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_TOKEN"));
+    }
+
+    @Test
+    @DisplayName("Too many wrong codes retire the request, so the right code and the link stop working")
+    void wrongCodesRetireTheRequest() throws Exception {
+        String username = uniqueUsername();
+        String email = username + "@example.test";
+        register(username, email);
+        requestReset(email);
+        PasswordResetTokens.IssuedReset mailed = mailedReset();
+        String wrongCode = "000000".equals(mailed.code()) ? "111111" : "000000";
+
+        // The test profile allows three.
+        for (int attempt = 0; attempt < 3; attempt++) {
+            mockMvc.perform(post("/api/auth/password/verify-code")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(codeBody(email, wrongCode)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_RESET_CODE"));
+        }
+
+        mockMvc.perform(post("/api/auth/password/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(codeBody(email, mailed.code())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_CODE"));
+        mockMvc.perform(post("/api/auth/password/reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resetBody(tokenOf(mailed), NEW_PASSWORD)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_TOKEN"));
+    }
+
+    @Test
+    @DisplayName("A code for an address with no account gets the same refusal as a wrong one")
+    void codeForUnknownAddressLooksWrong() throws Exception {
+        mockMvc.perform(post("/api/auth/password/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(codeBody("nobody-" + UUID.randomUUID() + "@example.test", "123456")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RESET_CODE"));
+    }
+
+    @Test
     @DisplayName("An address with no account gets the same 202 and nothing is sent")
     void unknownAddressLooksTheSame() throws Exception {
         requestReset("nobody-" + UUID.randomUUID() + "@example.test");
@@ -181,13 +260,26 @@ class PasswordResetFlowIntegrationTest {
     }
 
     private String tokenFromMailedLink() {
+        return tokenOf(mailedReset());
+    }
+
+    private PasswordResetTokens.IssuedReset mailedReset() {
         ArgumentCaptor<PasswordResetTokens.IssuedReset> sent =
                 ArgumentCaptor.forClass(PasswordResetTokens.IssuedReset.class);
         // Delivery runs on another thread, which is the point of it.
         verify(mailer, timeout(5000)).send(sent.capture());
-        String link = sent.getValue().link();
+        return sent.getValue();
+    }
+
+    private static String tokenOf(PasswordResetTokens.IssuedReset reset) {
+        String link = reset.link();
         assertThat(link).startsWith("https://client.test/reset-password?token=");
         return link.substring(link.indexOf("token=") + "token=".length());
+    }
+
+    private static String codeBody(String email, String code) {
+        return """
+                {"email":"%s","code":"%s"}""".formatted(email, code);
     }
 
     private static String uniqueUsername() {

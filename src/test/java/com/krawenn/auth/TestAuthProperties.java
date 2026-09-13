@@ -16,6 +16,7 @@ public final class TestAuthProperties {
     public static final String BOOTSTRAP_ADMIN_EMAIL = "admin@example.test";
     public static final Duration RESET_TOKEN_TTL = Duration.ofMinutes(30);
     public static final Duration RESET_REQUEST_COOLDOWN = Duration.ofSeconds(60);
+    public static final int RESET_MAX_CODE_ATTEMPTS = 3;
     public static final String RESET_LINK_TEMPLATE = "https://client.test/reset-password?token={token}";
 
     private TestAuthProperties() {}
@@ -30,6 +31,7 @@ public final class TestAuthProperties {
                 new AuthProperties.PasswordReset(
                         RESET_TOKEN_TTL,
                         RESET_REQUEST_COOLDOWN,
+                        RESET_MAX_CODE_ATTEMPTS,
                         RESET_LINK_TEMPLATE,
                         "0 45 3 * * *",
                         new AuthProperties.PasswordReset.Mail(
