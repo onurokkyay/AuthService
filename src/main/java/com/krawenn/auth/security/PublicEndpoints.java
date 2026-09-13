@@ -11,6 +11,11 @@ public final class PublicEndpoints {
         // Logout authenticates through the refresh token in the body: a client whose
         // access token already expired must still be able to end its session.
         "/api/auth/logout",
+        // Somebody who has forgotten their password has no token to present. Both answer
+        // the same way whether or not the account exists, so being reachable leaks nothing.
+        // Changing a password while signed in is deliberately not here.
+        "/api/auth/password/forgot",
+        "/api/auth/password/reset",
         // Consumers fetch verification keys before they can validate anything.
         "/.well-known/jwks.json",
         "/actuator/health/**",

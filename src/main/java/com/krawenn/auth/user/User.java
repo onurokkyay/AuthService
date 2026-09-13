@@ -92,6 +92,17 @@ public class User extends AbstractEntity {
     }
 
     public void registerSuccessfulLogin() {
+        unlock();
+    }
+
+    /**
+     * Clears the failure count and any lock.
+     *
+     * <p>A successful login does this, and so does setting a new password: an account locked by
+     * failed guesses is exactly the one whose owner resets it, and a reset that left the lock in
+     * place would look as though it had not worked.
+     */
+    public void unlock() {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
     }

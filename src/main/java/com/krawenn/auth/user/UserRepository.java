@@ -15,4 +15,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByUsernameIgnoreCase(String username);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    /** Password reset starts from an address, because an address is what a locked-out person still knows. */
+    Optional<User> findByEmailIgnoreCase(String email);
 }

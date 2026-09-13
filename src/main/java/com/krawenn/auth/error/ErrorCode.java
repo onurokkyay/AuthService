@@ -17,6 +17,10 @@ public enum ErrorCode {
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED),
+    INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST),
+    // 400 rather than 401: the caller is authenticated, and a client that reads 401 as
+    // "refresh and retry" would spend a refresh token to fail again on the same password.
+    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED),
     FORBIDDEN(HttpStatus.FORBIDDEN),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND),

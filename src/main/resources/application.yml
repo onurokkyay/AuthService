@@ -35,6 +35,11 @@ spring:
     virtual:
       enabled: true
 
+  # spring.mail.* is intentionally absent. Spring Boot creates a mail sender only when
+  # spring.mail.host is set, and declaring it here with an empty default would count as set --
+  # producing a sender pointed at nothing. Configure it from the environment instead
+  # (SPRING_MAIL_HOST, SPRING_MAIL_PORT, SPRING_MAIL_USERNAME, SPRING_MAIL_PASSWORD).
+
 server:
   port: ${SERVER_PORT:8081}
   shutdown: graceful
@@ -88,6 +93,36 @@ auth:
     # Empty by default: a browser client has to be named explicitly.
     allowed-origins: ${AUTH_CORS_ALLOWEDORIGINS:}
     allowed-methods: GET,POST,PATCH,OPTIONS
+
+  password-reset:
+    # How long an emailed link works. Short, because the link is a credential for as long as
+    # it lives.
+    token-ttl: ${AUTH_PASSWORDRESET_TOKENTTL:30m}
+    # How long an account waits before another link is sent. What keeps the endpoint from
+    # being used to fill somebody's inbox.
+    request-cooldown: ${AUTH_PASSWORDRESET_REQUESTCOOLDOWN:60s}
+    # Where the emailed link points: a page of the consuming application, which posts the
+    # token back to /api/auth/password/reset. {token} is replaced with the token.
+    link-template: ${AUTH_PASSWORDRESET_LINKTEMPLATE:http://localhost:3000/reset-password?token={token}}
+    cleanup-cron: ${AUTH_PASSWORDRESET_CLEANUPCRON:0 45 3 * * *}
+    mail:
+      # Off by default, so a deployment without a mail server still starts. Turning it on
+      # also needs spring.mail.host (SPRING_MAIL_HOST).
+      enabled: ${AUTH_PASSWORDRESET_MAIL_ENABLED:false}
+      from: ${AUTH_PASSWORDRESET_MAIL_FROM:no-reply@localhost}
+      product-name: ${AUTH_PASSWORDRESET_MAIL_PRODUCTNAME:Auth Service}
+      subject: ${AUTH_PASSWORDRESET_MAIL_SUBJECT:Reset your {product} password}
+      # A literal block rather than a ${...} default, because it spans lines. The environment
+      # still overrides it: AUTH_PASSWORDRESET_MAIL_BODYTEMPLATE outranks this file.
+      body-template: |
+        Hello {username},
+
+        Somebody asked to reset the password of your {product} account. If it was you,
+        open this link within {minutes} minutes to choose a new one:
+
+        {link}
+
+        If it was not you, you can ignore this email. Your password has not changed.
 
 logging:
   level:

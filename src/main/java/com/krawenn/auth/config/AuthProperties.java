@@ -3,6 +3,7 @@ package com.krawenn.auth.config;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.time.Duration;
 import java.util.List;
@@ -23,7 +24,8 @@ public record AuthProperties(
         @Valid @NotNull RefreshToken refreshToken,
         @Valid @NotNull Login login,
         @Valid @NotNull Registration registration,
-        @Valid @NotNull Cors cors) {
+        @Valid @NotNull Cors cors,
+        @Valid @NotNull PasswordReset passwordReset) {
 
     /**
      * Access token settings.
@@ -70,4 +72,48 @@ public record AuthProperties(
      */
     public record Cors(
             @NotNull List<String> allowedOrigins, @NotNull List<String> allowedMethods) {}
+
+    /**
+     * Password reset by email.
+     *
+     * @param tokenTtl how long an emailed link works; short, because the link is a credential
+     *     for as long as it lives
+     * @param requestCooldown how long an account waits before another link is sent — what
+     *     keeps the endpoint from being used to fill somebody's inbox
+     * @param linkTemplate where the emailed link points, with {@code {token}} where the token
+     *     goes. A page of the consuming application, which posts the token back here.
+     * @param cleanupCron when expired tokens are deleted
+     * @param mail delivery settings
+     */
+    public record PasswordReset(
+            @NotNull Duration tokenTtl,
+            @NotNull Duration requestCooldown,
+
+            @NotBlank @Pattern(regexp = ".*\\{token}.*", message = "must contain {token}")
+            String linkTemplate,
+
+            @NotBlank String cleanupCron,
+            @Valid @NotNull Mail mail) {
+
+        /**
+         * Everything a recipient reads is configured here, so that no consuming application's
+         * name has to reach the source tree.
+         *
+         * @param enabled off by default: a deployment without a mail server must still start,
+         *     and the mailer says in the log each time a reset was asked for and not sent
+         * @param from sender address
+         * @param productName substituted for {@code {product}}
+         * @param subject may use {@code {product}}
+         * @param bodyTemplate must contain {@code {link}}; may use {@code {product}},
+         *     {@code {username}} and {@code {minutes}}
+         */
+        public record Mail(
+                boolean enabled,
+                @NotBlank String from,
+                @NotBlank String productName,
+                @NotBlank String subject,
+
+                @NotBlank @Pattern(regexp = "(?s).*\\{link}.*", message = "must contain {link}")
+                String bodyTemplate) {}
+    }
 }
