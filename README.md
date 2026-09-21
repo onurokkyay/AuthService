@@ -41,7 +41,7 @@ and unacceptable in production — see [Signing keys](#signing-keys).
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | public | Create an account (`201`) |
+| POST | `/api/auth/register` | public | Create an account (`201`). `username`: 3–20 letters, digits or `_`, unique regardless of case; a few names (admin, support, gameatlas…) are reserved and read as taken |
 | POST | `/api/auth/login` | public | Exchange credentials for a token pair |
 | POST | `/api/auth/refresh` | public | Rotate a refresh token into a new pair |
 | POST | `/api/auth/logout` | public | Revoke a refresh token (`204`) |

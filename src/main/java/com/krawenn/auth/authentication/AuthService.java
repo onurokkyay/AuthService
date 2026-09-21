@@ -9,6 +9,7 @@ import com.krawenn.auth.error.UserAlreadyExistsException;
 import com.krawenn.auth.token.AccessToken;
 import com.krawenn.auth.token.AccessTokenService;
 import com.krawenn.auth.token.RefreshTokenService;
+import com.krawenn.auth.user.ReservedUsernames;
 import com.krawenn.auth.user.Role;
 import com.krawenn.auth.user.User;
 import com.krawenn.auth.user.UserRepository;
@@ -58,10 +59,11 @@ public class AuthService {
 
     @Transactional
     public User register(RegisterRequest request) {
-        if (userRepository.existsByUsernameIgnoreCase(request.username())
+        if (ReservedUsernames.isReserved(request.username())
+                || userRepository.existsByUsernameIgnoreCase(request.username())
                 || userRepository.existsByEmailIgnoreCase(request.email())) {
-            // Same response for both, so registration cannot be used to test which
-            // usernames or emails are taken.
+            // Same response for all three, so registration cannot be used to test which
+            // usernames or emails are taken. A reserved name simply reads as taken.
             throw new UserAlreadyExistsException();
         }
 

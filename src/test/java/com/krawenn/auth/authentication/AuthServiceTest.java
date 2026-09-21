@@ -96,6 +96,14 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("A reserved username reads as taken, whatever its case")
+    void reservedUsernameReadsAsTaken() {
+        assertThatExceptionOfType(UserAlreadyExistsException.class)
+                .isThrownBy(() -> authService.register(new RegisterRequest("Admin", "a@example.test", RAW_PASSWORD)));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("An email on the bootstrap list registers as ADMIN")
     void bootstrapEmailBecomesAdmin() {
         User created = authService.register(registerRequest(TestAuthProperties.BOOTSTRAP_ADMIN_EMAIL));
