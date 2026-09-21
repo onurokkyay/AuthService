@@ -59,7 +59,8 @@ public class AuthService {
 
     @Transactional
     public User register(RegisterRequest request) {
-        if (ReservedUsernames.isReserved(request.username())
+        if (ReservedUsernames.isReserved(
+                        request.username(), properties.registration().reservedUsernames())
                 || userRepository.existsByUsernameIgnoreCase(request.username())
                 || userRepository.existsByEmailIgnoreCase(request.email())) {
             // Same response for all three, so registration cannot be used to test which

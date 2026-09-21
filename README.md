@@ -41,7 +41,7 @@ and unacceptable in production — see [Signing keys](#signing-keys).
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | public | Create an account (`201`). `username`: 3–20 letters, digits or `_`, unique regardless of case; a few names (admin, support, gameatlas…) are reserved and read as taken |
+| POST | `/api/auth/register` | public | Create an account (`201`). `username`: 3–20 letters, digits or `_`, unique regardless of case; generic names (admin, support…) plus `auth.registration.reserved-usernames` are reserved and read as taken |
 | POST | `/api/auth/login` | public | Exchange credentials for a token pair |
 | POST | `/api/auth/refresh` | public | Rotate a refresh token into a new pair |
 | POST | `/api/auth/logout` | public | Revoke a refresh token (`204`) |
@@ -140,6 +140,7 @@ rather than failing on the first request.
 | `auth.login.max-failed-attempts` | `AUTH_LOGIN_MAXFAILEDATTEMPTS` | `5` | Failures before lockout |
 | `auth.login.lock-duration` | `AUTH_LOGIN_LOCKDURATION` | `15m` | Lockout length |
 | `auth.registration.bootstrap-admin-emails` | `AUTH_REGISTRATION_BOOTSTRAPADMINEMAILS` | empty | Emails registered as `ADMIN` |
+| `auth.registration.reserved-usernames` | `AUTH_REGISTRATION_RESERVEDUSERNAMES` | empty | Usernames nobody may register beyond the built-in generic ones — a consumer's own name, say |
 | `auth.cors.allowed-origins` | `AUTH_CORS_ALLOWEDORIGINS` | empty | Browser origins; empty denies all |
 | `auth.password-reset.token-ttl` | `AUTH_PASSWORDRESET_TOKENTTL` | `30m` | How long a reset link works |
 | `auth.password-reset.request-cooldown` | `AUTH_PASSWORDRESET_REQUESTCOOLDOWN` | `60s` | Minimum gap between links to one account |
