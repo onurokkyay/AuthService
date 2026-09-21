@@ -26,7 +26,7 @@ public final class TestAuthProperties {
                 new AuthProperties.Jwt(ISSUER, AUDIENCE, ACCESS_TOKEN_TTL, null, null),
                 new AuthProperties.RefreshToken(REFRESH_TOKEN_TTL, "0 0 3 * * *"),
                 new AuthProperties.Login(MAX_FAILED_ATTEMPTS, LOCK_DURATION),
-                new AuthProperties.Registration(List.of(BOOTSTRAP_ADMIN_EMAIL)),
+                new AuthProperties.Registration(List.of(BOOTSTRAP_ADMIN_EMAIL), List.of("acme")),
                 new AuthProperties.Cors(List.of(), List.of("GET", "POST")),
                 new AuthProperties.PasswordReset(
                         RESET_TOKEN_TTL,

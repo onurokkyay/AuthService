@@ -88,6 +88,9 @@ auth:
   registration:
     # Accounts registering with one of these emails are created as ADMIN.
     bootstrap-admin-emails: ${AUTH_REGISTRATION_BOOTSTRAPADMINEMAILS:}
+    # Usernames nobody may register beyond the built-in generic list (admin, support...): a consumer's
+    # own name, for instance. Comma-separated, case-insensitive.
+    reserved-usernames: ${AUTH_REGISTRATION_RESERVEDUSERNAMES:}
 
   cors:
     # Empty by default: a browser client has to be named explicitly.

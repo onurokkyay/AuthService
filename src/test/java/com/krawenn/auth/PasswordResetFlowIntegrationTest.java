@@ -283,7 +283,7 @@ class PasswordResetFlowIntegrationTest {
     }
 
     private static String uniqueUsername() {
-        return "user-" + UUID.randomUUID().toString().substring(0, 8);
+        return "user_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private void register(String username, String email) throws Exception {

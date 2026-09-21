@@ -64,8 +64,12 @@ public record AuthProperties(
      * @param bootstrapAdminEmails accounts registering with one of these emails become
      *     {@code ADMIN}. This is how the first administrator comes into existence;
      *     afterwards roles are managed through the admin endpoint.
+     * @param reservedUsernames names no account may take beyond the built-in generic ones — a consumer's own
+     *     name, for instance; refused exactly like a taken name
      */
-    public record Registration(@NotNull List<String> bootstrapAdminEmails) {}
+    public record Registration(
+            @NotNull List<String> bootstrapAdminEmails,
+            @NotNull List<String> reservedUsernames) {}
 
     /**
      * @param allowedOrigins empty by default — a browser client must be named explicitly

@@ -7,8 +7,10 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
         @NotBlank
-        @Size(min = 3, max = 32)
-        @Pattern(regexp = "^[A-Za-z0-9._-]+$", message = "must contain only letters, digits, dot, underscore or hyphen")
+        // A username is a public identity (profile addresses, follows), so it is limited to what reads the
+        // same everywhere: letters, digits and underscore, 3 to 20. Unique regardless of case.
+        @Size(min = 3, max = 20)
+        @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "must contain only letters, digits or underscore")
         String username,
 
         @NotBlank @Email @Size(max = 254) String email,
