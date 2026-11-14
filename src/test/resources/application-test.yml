@@ -5,6 +5,12 @@ spring:
       ddl-auto: validate
 
 auth:
+  password-policy:
+    breach-check:
+      # The tests' own passwords are famous ones, and a test must not depend on a third party being up.
+      enabled: false
+      base-url: https://pwned.test/
+      timeout: 1s
   jwt:
     issuer: https://auth.test
     audience: test-clients

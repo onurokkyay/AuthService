@@ -97,6 +97,15 @@ auth:
     allowed-origins: ${AUTH_CORS_ALLOWEDORIGINS:}
     allowed-methods: GET,POST,PATCH,DELETE,OPTIONS
 
+  password-policy:
+    breach-check:
+      # A new password known from a data breach is refused (BreachedPasswords). Only the first five hex
+      # characters of its SHA-1 leave this service. When the check does not answer, the password is let
+      # through rather than stopping registration.
+      enabled: ${AUTH_PASSWORDPOLICY_BREACHCHECK_ENABLED:true}
+      base-url: ${AUTH_PASSWORDPOLICY_BREACHCHECK_BASEURL:https://api.pwnedpasswords.com/}
+      timeout: ${AUTH_PASSWORDPOLICY_BREACHCHECK_TIMEOUT:3s}
+
   account-deletion:
     # Each application that keeps data about an account, asked to delete it (DELETE, with the person's
     # own access token) before the account itself is closed. Comma-separated. Empty when none does.
