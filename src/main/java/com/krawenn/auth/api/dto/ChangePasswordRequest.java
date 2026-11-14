@@ -1,5 +1,6 @@
 package com.krawenn.auth.api.dto;
 
+import com.krawenn.auth.password.NotBreached;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -9,4 +10,4 @@ import jakarta.validation.constraints.Size;
  */
 public record ChangePasswordRequest(
         @NotBlank String currentPassword,
-        @NotBlank @Size(min = 12, max = 72) String newPassword) {}
+        @NotBlank @Size(min = 8, max = 72) @NotBreached String newPassword) {}
