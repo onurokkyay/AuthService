@@ -35,6 +35,7 @@ public final class TestAuthProperties {
                         RESET_LINK_TEMPLATE,
                         "0 45 3 * * *",
                         new AuthProperties.PasswordReset.Mail(
-                                false, "no-reply@example.test", "Test", "Reset your {product} password", "{link}")));
+                                false, "no-reply@example.test", "Test", "Reset your {product} password", "{link}")),
+                new AuthProperties.AccountDeletion(List.of(), java.time.Duration.ofSeconds(10)));
     }
 }

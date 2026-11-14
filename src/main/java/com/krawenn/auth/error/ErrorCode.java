@@ -27,6 +27,8 @@ public enum ErrorCode {
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND),
     USER_ALREADY_EXISTS(HttpStatus.CONFLICT),
+    // An application holding the account's data did not confirm deleting it, so the account is still open.
+    ACCOUNT_DELETION_INCOMPLETE(HttpStatus.BAD_GATEWAY),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus httpStatus;
