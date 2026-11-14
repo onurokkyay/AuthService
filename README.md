@@ -74,7 +74,8 @@ account — is `400 INVALID_RESET_CODE`. Exchanging a code spends it and retires
 `/password/change` takes `{"currentPassword": "…", "newPassword": "…"}`. A wrong current
 password is `400 INVALID_CURRENT_PASSWORD` — deliberately not `401`, which a client would
 answer by refreshing its token and retrying. New passwords follow the registration rules
-(12–72 characters).
+(8–72 characters, and never one known from a data breach: only the first five characters of its SHA-1 are
+sent to Pwned Passwords, and an unreachable check lets the password through).
 
 ### Errors
 
