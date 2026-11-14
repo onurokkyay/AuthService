@@ -1,6 +1,8 @@
 package com.krawenn.auth.api;
 
+import com.krawenn.auth.account.AccountDeletion;
 import com.krawenn.auth.api.dto.ChangePasswordRequest;
+import com.krawenn.auth.api.dto.DeleteAccountRequest;
 import com.krawenn.auth.api.dto.ForgotPasswordRequest;
 import com.krawenn.auth.api.dto.LoginRequest;
 import com.krawenn.auth.api.dto.RefreshTokenRequest;
@@ -20,6 +22,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,11 +39,17 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
     private final PasswordService passwordService;
+    private final AccountDeletion accountDeletion;
 
-    public AuthController(AuthService authService, UserService userService, PasswordService passwordService) {
+    public AuthController(
+            AuthService authService,
+            UserService userService,
+            PasswordService passwordService,
+            AccountDeletion accountDeletion) {
         this.authService = authService;
         this.userService = userService;
         this.passwordService = passwordService;
+        this.accountDeletion = accountDeletion;
     }
 
     @PostMapping("/register")
@@ -119,5 +128,18 @@ public class AuthController {
             @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest request) {
         return passwordService.changePassword(
                 UUID.fromString(jwt.getSubject()), request.currentPassword(), request.newPassword());
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(
+            summary = "Delete the signed-in account, everywhere",
+            description = "Asks for the password again, because this cannot be undone. Every application that keeps "
+                    + "data about the account deletes it first, then the account is closed here with every session. "
+                    + "400 INVALID_CURRENT_PASSWORD for a wrong password, which counts towards the lockout. 502 "
+                    + "ACCOUNT_DELETION_INCOMPLETE when an application did not confirm: the account is still open and "
+                    + "trying again is safe.")
+    public void deleteAccount(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DeleteAccountRequest request) {
+        accountDeletion.delete(UUID.fromString(jwt.getSubject()), request.password(), jwt.getTokenValue());
     }
 }

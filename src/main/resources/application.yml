@@ -95,7 +95,13 @@ auth:
   cors:
     # Empty by default: a browser client has to be named explicitly.
     allowed-origins: ${AUTH_CORS_ALLOWEDORIGINS:}
-    allowed-methods: GET,POST,PATCH,OPTIONS
+    allowed-methods: GET,POST,PATCH,DELETE,OPTIONS
+
+  account-deletion:
+    # Each application that keeps data about an account, asked to delete it (DELETE, with the person's
+    # own access token) before the account itself is closed. Comma-separated. Empty when none does.
+    notify-urls: ${AUTH_ACCOUNTDELETION_NOTIFYURLS:}
+    timeout: ${AUTH_ACCOUNTDELETION_TIMEOUT:20s}
 
   password-reset:
     # How long an emailed link works. Short, because the link is a credential for as long as

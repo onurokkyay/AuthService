@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -25,7 +26,23 @@ public record AuthProperties(
         @Valid @NotNull Login login,
         @Valid @NotNull Registration registration,
         @Valid @NotNull Cors cors,
-        @Valid @NotNull PasswordReset passwordReset) {
+        @Valid @NotNull PasswordReset passwordReset,
+        @Valid @NotNull AccountDeletion accountDeletion) {
+
+    /**
+     * What else has to forget an account before this service closes it.
+     *
+     * <p>This service holds the sign-in; the applications that use it hold everything else. Each one
+     * listed here is asked to delete its own data first, with a {@code DELETE} carrying the person's own
+     * access token, so no service-to-service secret is involved: the application sees the same caller it
+     * always sees. Only when every one has answered 2xx is the account closed. A failure leaves the
+     * account open, so the person can try again and nothing is left behind with no owner to reach it.
+     *
+     * @param notifyUrls each consuming application's own deletion endpoint; empty when none holds data
+     * @param timeout how long one of them may take to answer
+     */
+    public record AccountDeletion(
+            @NotNull List<URI> notifyUrls, @NotNull Duration timeout) {}
 
     /**
      * Access token settings.
