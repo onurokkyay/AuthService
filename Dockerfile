@@ -1,5 +1,8 @@
 # ---- Build stage ----
-FROM eclipse-temurin:25-jdk-alpine AS build
+# On the build machine's own platform even when the image is for another one (the Raspberry Pi
+# is arm64, the PC amd64). The jar is the same bytes on either, and Gradle under emulation takes
+# many times as long; only the runtime stage below has to match the target.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /workspace
 
 # Cache the Gradle distribution and dependencies across builds.
@@ -13,7 +16,7 @@ COPY src ./src
 RUN ./gradlew --no-daemon bootJar -x test
 
 # ---- Layer extraction for image caching ----
-FROM eclipse-temurin:25-jre-alpine AS extract
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jre-alpine AS extract
 WORKDIR /extract
 COPY --from=build /workspace/build/libs/auth-service.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
